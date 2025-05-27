@@ -16,17 +16,25 @@ public class ClienteService {
         this.clienteRepository = clienteRepository;
     }
 
-    public void criarCliente(ClienteDTO dto) {
+    public Cliente criarCliente(ClienteDTO dto) {
         Cliente cliente = new Cliente();
         cliente.setNome(dto.getNome());
         cliente.setEmail(dto.getEmail());
         cliente.setCpf(dto.getCpf());
 
-        clienteRepository.save(cliente);
+        return clienteRepository.save(cliente);
     }
 
     public Cliente buscarPorId(Long id) {
         return clienteRepository.findById(id)
                 .orElseThrow(() -> new NoSuchElementException("Cliente não encontrado com ID: " + id));
+    }
+
+    public void deletar(Long id) {
+        Cliente cliente = this.buscarPorId(id);
+        if (cliente != null) {
+            this.clienteRepository.delete(cliente);
+        }
+
     }
 }

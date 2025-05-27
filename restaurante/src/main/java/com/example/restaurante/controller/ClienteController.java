@@ -23,9 +23,9 @@ public class ClienteController {
 
     @Operation(summary = "Criar um novo cliente")
     @PostMapping
-    public ResponseEntity<String> criarCliente(@Valid @RequestBody ClienteDTO clienteDTO) {
-        clienteService.criarCliente(clienteDTO);
-        return new ResponseEntity<>("Cliente criado com sucesso", HttpStatus.CREATED);
+    public ResponseEntity<Cliente> criarCliente(@Valid @RequestBody ClienteDTO clienteDTO) {
+        Cliente cliente = clienteService.criarCliente(clienteDTO);
+        return new ResponseEntity<>(cliente, HttpStatus.CREATED);
     }
 
     @Operation(summary = "Buscar cliente por ID")
@@ -33,5 +33,12 @@ public class ClienteController {
     public ResponseEntity<Cliente> buscarCliente(@PathVariable Long id) {
         Cliente cliente = clienteService.buscarPorId(id);
         return ResponseEntity.ok(cliente);
+    }
+
+    @Operation(summary = "Deletar cliente por ID")
+    @DeleteMapping("/{id}")
+    public ResponseEntity<String> deletarCliente(@PathVariable Long id) {
+        clienteService.deletar(id);
+        return new ResponseEntity<>("Cliente deletado com sucesso!",HttpStatus.OK);
     }
 }
