@@ -1,7 +1,13 @@
 package com.example.restaurante.model;
 
 import jakarta.persistence.*;
+import lombok.Data;
 
+import java.math.BigDecimal;
+import java.util.List;
+import java.util.Objects;
+
+@Data
 @Entity
 public class ItemCardapio {
 
@@ -9,41 +15,18 @@ public class ItemCardapio {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Column(unique = true)
+    private Long idExterno;
+
     private String nome;
 
     @Column (nullable = false)
-    private Double preco;
+    private BigDecimal preco;
 
-    public ItemCardapio() {
-    }
+    private String descricao;
 
-    public ItemCardapio(String nome, Double preco, Long id) {
-        this.nome = nome;
-        this.preco = preco;
-        this.id = id;
-    }
+    private String categoria;
 
-    public Long getId() {
-        return id;
-    }
-
-    public void setId(Long id) {
-        this.id = id;
-    }
-
-    public String getNome() {
-        return nome;
-    }
-
-    public void setNome(String nome) {
-        this.nome = nome;
-    }
-
-    public Double getPreco() {
-        return preco;
-    }
-
-    public void setPreco(Double preco) {
-        this.preco = preco;
-    }
+    @ManyToMany
+    private List<Pedido> pedido;
 }
