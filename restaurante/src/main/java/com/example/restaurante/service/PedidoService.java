@@ -8,6 +8,7 @@ import com.example.restaurante.model.PedidoStatus;
 import com.example.restaurante.repository.ClienteRepository;
 import com.example.restaurante.repository.ItemCardapioRepository;
 import com.example.restaurante.repository.PedidoRepository;
+import com.example.restaurante.service.integration.CardapioExternoApiService;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -19,13 +20,16 @@ public class PedidoService {
     private final PedidoRepository pedidoRepository;
     private final ClienteRepository clienteRepository;
     private final ItemCardapioRepository itemCardapioRepository;
+    private final CardapioExternoApiService cardapioExternoApiService;
 
     public PedidoService(PedidoRepository pedidoRepository,
                          ClienteRepository clienteRepository,
-                         ItemCardapioRepository itemCardapioRepository) {
+                         ItemCardapioRepository itemCardapioRepository,
+                         CardapioExternoApiService cardapioExternoApiService) {
         this.pedidoRepository = pedidoRepository;
         this.clienteRepository = clienteRepository;
         this.itemCardapioRepository = itemCardapioRepository;
+        this.cardapioExternoApiService = cardapioExternoApiService;
     }
 
     public void realizarPedido(PedidoDTO dto) {
@@ -33,14 +37,16 @@ public class PedidoService {
         Cliente cliente = clienteRepository.findById(dto.getClienteId())
                 .orElseThrow(() -> new NoSuchElementException("Cliente não encontrado"));
 
-        List<ItemCardapio> itens = itemCardapioRepository.findAllById(dto.getItens());
+        List<ItemCardapio> itens = cardapioExternoApiService.recuperarCardapioFiltrado(dto.getItens());
         if (itens.size() != dto.getItens().size()) {
             throw new IllegalArgumentException("Alguns itens do pedido não foram encontrados");
         }
 
+        List<ItemCardapio> salvos = this.itemCardapioRepository.saveAll(itens);
+
         Pedido pedido = new Pedido();
         pedido.setCliente(cliente);
-        pedido.setItens(itens);
+        pedido.setItens(salvos);
         pedido.setStatus(PedidoStatus.RECEBIDO); // status inicial
 
         pedidoRepository.save(pedido);
