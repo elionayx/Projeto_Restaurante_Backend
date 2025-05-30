@@ -3,6 +3,7 @@ package com.example.restaurante.model;
 import jakarta.persistence.*;
 import lombok.Data;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Data
@@ -13,16 +14,23 @@ public class Pedido {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne
-    private Cliente cliente;
-
-    @ManyToMany
-    private List<ItemCardapio> itens;
+    private LocalDateTime dataHora;
 
     @Enumerated(EnumType.STRING)
-    private PedidoStatus status;
+    private StatusPedido status;
 
-    public Pedido() {
-    }
+    private Double valorTotal;
+
+    @Enumerated(EnumType.STRING)
+    private FormaPagamento formaPagamento;
+
+    @ManyToOne
+    @JoinColumn(name = "mesa_id")
+    private Mesa mesa;
+
+    @OneToMany(mappedBy = "pedido", cascade = CascadeType.ALL)
+    private List<ItemPedido> itens;
+
+    // Getters e Setters
 }
 

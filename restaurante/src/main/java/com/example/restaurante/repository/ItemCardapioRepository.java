@@ -8,5 +8,4 @@ import java.util.Optional;
 
 @Repository
 public interface ItemCardapioRepository extends JpaRepository<ItemCardapio, Long> {
-    Optional<ItemCardapio> findByIdExterno(Long idExterno);
 }
