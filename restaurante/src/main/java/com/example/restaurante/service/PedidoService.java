@@ -1,68 +1,115 @@
 package com.example.restaurante.service;
 
-import com.example.restaurante.dto.PedidoDTO;
-import com.example.restaurante.model.Cliente;
-import com.example.restaurante.model.ItemCardapio;
-import com.example.restaurante.model.Pedido;
-import com.example.restaurante.model.PedidoStatus;
-import com.example.restaurante.repository.ClienteRepository;
+import com.example.restaurante.dto.CriarPedidoDTO;
+import com.example.restaurante.dto.ItemPedidoRequestDTO;
+import com.example.restaurante.model.*;
 import com.example.restaurante.repository.ItemCardapioRepository;
+import com.example.restaurante.repository.ItemPedidoRepository;
+import com.example.restaurante.repository.MesaRepository;
 import com.example.restaurante.repository.PedidoRepository;
-import com.example.restaurante.service.integration.CardapioExternoApiService;
+import jakarta.persistence.EntityNotFoundException;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
-import java.util.NoSuchElementException;
 
 @Service
 public class PedidoService {
 
     private final PedidoRepository pedidoRepository;
-    private final ClienteRepository clienteRepository;
+    private final MesaRepository mesaRepository;
     private final ItemCardapioRepository itemCardapioRepository;
-    private final CardapioExternoApiService cardapioExternoApiService;
+    private final ItemPedidoRepository itemPedidoRepository;
 
     public PedidoService(PedidoRepository pedidoRepository,
-                         ClienteRepository clienteRepository,
+                         MesaRepository mesaRepository,
                          ItemCardapioRepository itemCardapioRepository,
-                         CardapioExternoApiService cardapioExternoApiService) {
+                         ItemPedidoRepository itemPedidoRepository) {
         this.pedidoRepository = pedidoRepository;
-        this.clienteRepository = clienteRepository;
+        this.mesaRepository = mesaRepository;
         this.itemCardapioRepository = itemCardapioRepository;
-        this.cardapioExternoApiService = cardapioExternoApiService;
+        this.itemPedidoRepository = itemPedidoRepository;
     }
 
-    public void realizarPedido(PedidoDTO dto) {
-
-        Cliente cliente = clienteRepository.findById(dto.getClienteId())
-                .orElseThrow(() -> new NoSuchElementException("Cliente não encontrado"));
-
-        List<ItemCardapio> itens = cardapioExternoApiService.recuperarCardapioFiltrado(dto.getItens());
-        if (itens.size() != dto.getItens().size()) {
-            throw new IllegalArgumentException("Alguns itens do pedido não foram encontrados");
-        }
-
-        List<ItemCardapio> salvos = this.itemCardapioRepository.saveAll(itens);
+    @Transactional
+    public Pedido criarPedido(CriarPedidoDTO dto) {
+        Mesa mesa = mesaRepository.findById(dto.getMesaId())
+                .orElseThrow(() -> new EntityNotFoundException("Mesa não encontrada."));
 
         Pedido pedido = new Pedido();
-        pedido.setCliente(cliente);
-        pedido.setItens(salvos);
-        pedido.setStatus(PedidoStatus.RECEBIDO); // status inicial
+        pedido.setMesa(mesa);
+        pedido.setDataHora(LocalDateTime.now());
+        pedido.setStatus(StatusPedido.ABERTO);
+
+        List<ItemPedido> itens = new ArrayList<>();
+        double total = 0.0;
+
+        for (ItemPedidoRequestDTO itemDto : dto.getItens()) {
+            ItemCardapio itemCardapio = itemCardapioRepository.findById(itemDto.getItemCardapioId())
+                    .orElseThrow(() -> new EntityNotFoundException("Item do cardápio não encontrado."));
+
+            ItemPedido itemPedido = new ItemPedido();
+            itemPedido.setItemCardapio(itemCardapio);
+            itemPedido.setPedido(pedido);
+            itemPedido.setQuantidade(itemDto.getQuantidade());
+
+            itens.add(itemPedido);
+
+            total += itemCardapio.getPreco() * itemDto.getQuantidade();
+        }
+
+        pedido.setValorTotal(total);
+        pedido.setItens(itens);
+
+        mesa.setStatus(StatusMesa.OCUPADA);
+        mesaRepository.save(mesa);
 
         pedidoRepository.save(pedido);
+        itemPedidoRepository.saveAll(itens);
+
+        return pedido;
     }
 
-    public Pedido buscarPedido(Long id) {
+    public Pedido buscarPorId(Long id) {
         return pedidoRepository.findById(id)
-                .orElseThrow(() -> new NoSuchElementException("Pedido não encontrado"));
+                .orElseThrow(() -> new EntityNotFoundException("Pedido não encontrado."));
     }
 
-    public void atualizarStatus(Long id, String status) {
-        Pedido pedido = pedidoRepository.findById(id)
-                .orElseThrow(() -> new NoSuchElementException("Pedido não encontrado"));
+    public List<Pedido> listarTodos() {
+        return pedidoRepository.findAll();
+    }
 
-        pedido.setStatus(PedidoStatus.valueOf(status.toUpperCase()));
+    @Transactional
+    public Pedido atualizarStatus(Long id, StatusPedido status) {
+        Pedido pedido = buscarPorId(id);
+        pedido.setStatus(status);
+        return pedidoRepository.save(pedido);
+    }
 
-        pedidoRepository.save(pedido);
+    @Transactional
+    public Pedido finalizarPedido(Long id, FormaPagamento pagamento) {
+        Pedido pedido = buscarPorId(id);
+
+        if (pedido.getStatus() != StatusPedido.ENTREGUE) {
+            throw new IllegalStateException("Pedido não pode ser finalizado nesse status.");
+        }
+
+        pedido.setStatus(StatusPedido.FINALIZADO);
+        pedido.setFormaPagamento(pagamento);
+
+        Mesa mesa = pedido.getMesa();
+        List<Pedido> pedidosDaMesa = pedidoRepository.findByMesaId(mesa.getId());
+
+        boolean existemPedidosAbertos = pedidosDaMesa.stream()
+                .anyMatch(p -> !p.getId().equals(id) && p.getStatus() != StatusPedido.FINALIZADO);
+
+        if (!existemPedidosAbertos) {
+            mesa.setStatus(StatusMesa.DISPONIVEL);
+            mesaRepository.save(mesa);
+        }
+
+        return pedidoRepository.save(pedido);
     }
 }
