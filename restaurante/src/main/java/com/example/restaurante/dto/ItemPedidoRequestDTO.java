@@ -7,5 +7,5 @@ public class ItemPedidoRequestDTO {
     private Long itemCardapioId;
     private Integer quantidade;
 
-    // Getters e Setters
+   
 }
