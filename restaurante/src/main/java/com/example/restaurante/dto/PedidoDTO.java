@@ -21,5 +21,4 @@ public class PedidoDTO {
     private Long mesaId;
     private List<ItemPedidoDTO> itens;
 
-    // Getters e Setters
 }
